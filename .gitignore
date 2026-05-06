@@ -1,9 +1,21 @@
+# IDE
 .idea/
 .vscode/
+
+# Python
 __pycache__/
 *.py[cod]
+*.pyc
+
+# System files
 desktop.ini
 Thumbs.db
+
+# Virtual environments
 .venv/
 .venv1/
 venv/
+env/
+
+# Git
+*.orig
