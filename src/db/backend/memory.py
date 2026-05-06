@@ -6,12 +6,14 @@ type StudentRecord = tuple[int, str, str, int, str]
 
 # Таблица Student представлена списком записей (кортежей).
 Student: list[StudentRecord] = []
+
+
 def create_record(
-    student_id: int,   # Уникальный идентификатор записи
-    first_name: str,   # Имя
+    student_id: int,  # Уникальный идентификатор записи
+    first_name: str,  # Имя
     second_name: str,  # Фамилия
-    age: int,          # Возраст
-    sex: str,          # Пол
+    age: int,  # Возраст
+    sex: str,  # Пол
 ) -> StudentRecord:
     """
     Создаёт новую запись и добавляет её в таблицу Student.
@@ -47,12 +49,14 @@ def create_record(
 
     # Возврат созданной записи.
     return new_record
+
+
 def select_record(
-    student_id: int | None = None,   # Фильтр по идентификатору
-    first_name: str | None = None,   # Фильтр по имени
+    student_id: int | None = None,  # Фильтр по идентификатору
+    first_name: str | None = None,  # Фильтр по имени
     second_name: str | None = None,  # Фильтр по фамилии
-    age: int | None = None,          # Фильтр по возрасту
-    sex: str | None = None,          # Фильтр по полу
+    age: int | None = None,  # Фильтр по возрасту
+    sex: str | None = None,  # Фильтр по полу
 ) -> list[StudentRecord]:
     """
     Выполняет выборку записей из таблицы Student
@@ -105,39 +109,14 @@ def select_record(
 
     # Возврат списка найденных записей.
     return result
+
+
 def update_record(
     student_id: int,
     first_name: str | None = None,
     second_name: str | None = None,
     age: int | None = None,
     sex: str | None = None,
-) -> StudentRecord | None:
-    for i, record in enumerate(Student):
-        if record[0] == student_id:
-            new_record = (
-                student_id,
-                first_name if first_name is not None else record[1],
-                second_name if second_name is not None else record[2],
-                age if age is not None else record[3],
-                sex if sex is not None else record[4],
-            )
-            Student[i] = new_record
-            return new_record
-    raise ValueError(f"Запись с id={student_id} не найдена.")
-def delete_record(student_id: int) -> bool:
-    for i, record in enumerate(Student):
-        if record[0] == student_id:
-            Student.pop(i)
-            return True
-    return False
-
-
-def update_record(
-        student_id: int,
-        first_name: str | None = None,
-        second_name: str | None = None,
-        age: int | None = None,
-        sex: str | None = None,
 ) -> StudentRecord | None:
     """
     Обновляет существующую запись по ID.
