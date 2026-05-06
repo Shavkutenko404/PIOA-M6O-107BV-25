@@ -1,4 +1,9 @@
 .idea/
 .vscode/
-.idea/
-.vscode/
+__pycache__/
+*.py[cod]
+desktop.ini
+Thumbs.db
+.venv/
+.venv1/
+venv/
