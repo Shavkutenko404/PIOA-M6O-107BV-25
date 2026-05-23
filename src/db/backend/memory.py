@@ -1,157 +1,347 @@
-# Определение пользовательского алиаса типа для записи таблицы.
-# В качестве структуры записи используется кортеж,
-# поскольку кортеж является неизменяемым типом данных.
-# Структура записи Student: (id, first_name, second_name, age, sex)
-type StudentRecord = tuple[int, str, str, int, str]
-
-# Таблица Student представлена списком записей (кортежей).
-Student: list[StudentRecord] = []
-
-
-def create_record(
-    student_id: int,  # Уникальный идентификатор записи
-    first_name: str,  # Имя
-    second_name: str,  # Фамилия
-    age: int,  # Возраст
-    sex: str,  # Пол
-) -> StudentRecord:
-    """
-    Создаёт новую запись и добавляет её в таблицу Student.
-
-    Выполняется валидация возраста и проверка уникальности идентификатора.
-    В случае нарушения условий возбуждается исключение ValueError.
-    """
-
-    # Проверка корректности возраста.
-    # Возраст не может быть отрицательным значением.
-    if age < 0:
-        raise ValueError("Поле age не может быть отрицательным.")
-
-    # Проверка уникальности идентификатора.
-    # Функция any() возвращает True, если хотя бы один элемент
-    # последовательности удовлетворяет условию.
-    if any(record[0] == student_id for record in Student):
-        raise ValueError(f"Запись с id={student_id} уже существует.")
-
-    # Формирование новой записи.
-    # Метод strip() удаляет пробельные символы
-    # в начале и в конце строки.
-    new_record: StudentRecord = (
-        student_id,
-        first_name.strip(),
-        second_name.strip(),
-        age,
-        sex.strip(),
-    )
-
-    # Добавление записи в таблицу.
-    Student.append(new_record)
-
-    # Возврат созданной записи.
-    return new_record
+from typing import Any
+from .errors import (
+    TableNotFoundError,
+    ColumnNotFoundError,
+    DuplicateTableError,
+    EmptyTableNameError,
+    EmptyColumnsError,
+    InvalidRecordLengthError,
+    RecordNotFoundError,
+    InvalidColumnNameError,
+)
 
 
-def select_record(
-    student_id: int | None = None,  # Фильтр по идентификатору
-    first_name: str | None = None,  # Фильтр по имени
-    second_name: str | None = None,  # Фильтр по фамилии
-    age: int | None = None,  # Фильтр по возрасту
-    sex: str | None = None,  # Фильтр по полу
-) -> list[StudentRecord]:
-    """
-    Выполняет выборку записей из таблицы Student
-    в соответствии с переданными фильтрами.
+class Table:
+    """Класс для представления одной таблицы"""
 
-    Если фильтры не заданы, возвращается копия всей таблицы.
-    """
+    def __init__(self, name: str, columns: list[str]):
+        self.name = name
+        self.columns = columns.copy()
+        self.records: list[tuple[Any, ...]] = []
 
-    # Проверка отсутствия всех фильтров.
-    # В этом случае возвращается копия списка,
-    # чтобы предотвратить изменение исходной таблицы
-    # внешним кодом.
-    if (
-        student_id is None
-        and first_name is None
-        and second_name is None
-        and age is None
-        and sex is None
-    ):
-        return Student.copy()
+    def add_record(self, record: tuple[Any, ...]) -> None:
+        """Добавляет запись в таблицу"""
+        if len(record) != len(self.columns):
+            raise InvalidRecordLengthError(
+                f"Запись должна содержать {len(self.columns)} полей"
+            )
+        self.records.append(record)
 
-    # Формирование результирующего списка.
-    result: list[StudentRecord] = []
+    def get_records(self, **filters: Any) -> list[tuple[Any, ...]]:
+        """Возвращает записи по фильтру"""
+        if not filters:
+            return self.records.copy()
 
-    # Итерация по всем записям таблицы.
-    for record in Student:
+        result = []
+        for record in self.records:
+            if self._matches_filters(record, filters):
+                result.append(record)
+        return result
 
-        # Проверка соответствия каждому фильтру.
-        # Если фильтр задан и запись ему не соответствует,
-        # выполняется переход к следующей итерации цикла.
+    def _matches_filters(self, record: tuple, filters: dict) -> bool:
+        """Проверяет, соответствует ли запись фильтрам"""
+        for key, value in filters.items():
+            if key not in self.columns:
+                return False
+            idx = self.columns.index(key)
+            if record[idx] != value:
+                return False
+        return True
 
-        if student_id is not None and record[0] != student_id:
-            continue
+    def update_records(self, updates: dict[str, Any], **filters: Any) -> int:
+        """Обновляет записи по фильтру"""
+        # Проверяем, что все поля для обновления существуют
+        invalid_keys = [k for k in updates.keys() if k not in self.columns]
+        if invalid_keys:
+            raise ColumnNotFoundError(
+                f"Неизвестное поле: {', '.join(invalid_keys)}. "
+                f"Доступные поля: {self.columns}"
+            )
 
-        if first_name is not None and record[1] != first_name:
-            continue
+        updated = 0
+        for i, record in enumerate(self.records):
+            if self._matches_filters(record, filters):
+                record_list = list(record)
+                for key, value in updates.items():
+                    idx = self.columns.index(key)
+                    record_list[idx] = value
+                self.records[i] = tuple(record_list)
+                updated += 1
+        return updated
 
-        if second_name is not None and record[2] != second_name:
-            continue
+    def update_records_by_indexes(
+        self, indexes: list[int], updates: dict[str, Any]
+    ) -> int:
+        """Обновляет записи по списку индексов"""
+        # Проверяем, что все поля для обновления существуют
+        invalid_keys = [k for k in updates.keys() if k not in self.columns]
+        if invalid_keys:
+            raise ColumnNotFoundError(
+                f"Неизвестное поле: {', '.join(invalid_keys)}. "
+                f"Доступные поля: {self.columns}"
+            )
 
-        if age is not None and record[3] != age:
-            continue
+        updated = 0
+        for idx in sorted(indexes, reverse=True):
+            if 0 <= idx < len(self.records):
+                record_list = list(self.records[idx])
+                for key, value in updates.items():
+                    col_idx = self.columns.index(key)
+                    record_list[col_idx] = value
+                self.records[idx] = tuple(record_list)
+                updated += 1
+        return updated
 
-        if sex is not None and record[4] != sex:
-            continue
+    def delete_records(self, **filters: Any) -> int:
+        """Удаляет записи по фильтру"""
+        if not filters:
+            count = len(self.records)
+            self.records.clear()
+            return count
 
-        # Если запись удовлетворяет всем заданным условиям,
-        # она добавляется в результирующий список.
-        result.append(record)
+        to_keep = []
+        deleted = 0
+        for record in self.records:
+            if self._matches_filters(record, filters):
+                deleted += 1
+            else:
+                to_keep.append(record)
 
-    # Возврат списка найденных записей.
-    return result
+        self.records = to_keep
+        return deleted
+
+    def delete_records_by_indexes(self, indexes: list[int]) -> int:
+        """Удаляет записи по списку индексов"""
+        deleted = 0
+        for idx in sorted(indexes, reverse=True):
+            if 0 <= idx < len(self.records):
+                del self.records[idx]
+                deleted += 1
+        return deleted
+
+    def clear(self) -> None:
+        """Очищает все записи"""
+        self.records.clear()
+
+    def rename_column(self, old_name: str, new_name: str) -> None:
+        """Переименовывает колонку"""
+        if old_name not in self.columns:
+            raise ColumnNotFoundError(f"Колонка '{old_name}' не найдена")
+        if new_name in self.columns:
+            raise ColumnNotFoundError(f"Колонка '{new_name}' уже существует")
+
+        idx = self.columns.index(old_name)
+        self.columns[idx] = new_name
+
+    def get_record_by_index(self, index: int) -> tuple[Any, ...]:
+        """Возвращает запись по индексу"""
+        if 0 <= index < len(self.records):
+            return self.records[index]
+        raise RecordNotFoundError(f"Запись с индексом {index} не найдена")
+
+    def delete_record_by_index(self, index: int) -> None:
+        """Удаляет запись по индексу"""
+        if 0 <= index < len(self.records):
+            del self.records[index]
+        else:
+            raise RecordNotFoundError(f"Запись с индексом {index} не найдена")
+
+    def update_record_by_index(self, index: int, updates: dict[str, Any]) -> None:
+        """Обновляет запись по индексу"""
+        if not (0 <= index < len(self.records)):
+            raise RecordNotFoundError(f"Запись с индексом {index} не найдена")
+
+        # Проверяем, что все поля для обновления существуют
+        invalid_keys = [k for k in updates.keys() if k not in self.columns]
+        if invalid_keys:
+            raise ColumnNotFoundError(
+                f"Неизвестное поле: {', '.join(invalid_keys)}. "
+                f"Доступные поля: {self.columns}"
+            )
+
+        record_list = list(self.records[index])
+        for key, value in updates.items():
+            col_idx = self.columns.index(key)
+            record_list[col_idx] = value
+        self.records[index] = tuple(record_list)
+
+    def record_count(self) -> int:
+        """Количество записей в таблице"""
+        return len(self.records)
+
+    def sort_records(self, column: str, reverse: bool = False) -> list[tuple[Any, ...]]:
+        """Сортирует записи по указанной колонке"""
+        if column not in self.columns:
+            raise ColumnNotFoundError(f"Колонка '{column}' не найдена")
+
+        col_idx = self.columns.index(column)
+        return sorted(self.records, key=lambda record: record[col_idx], reverse=reverse)
 
 
-def update_record(
-    student_id: int,
-    first_name: str | None = None,
-    second_name: str | None = None,
-    age: int | None = None,
-    sex: str | None = None,
-) -> StudentRecord | None:
-    """
-    Обновляет существующую запись по ID.
-    Если поле не указано (None) — оно остаётся без изменений.
-    Возвращает обновлённую запись или None, если ID не найден.
-    """
-    for i, record in enumerate(Student):
-        if record[0] == student_id:
-            # Берём старые значения
-            old_id, old_fn, old_sn, old_age, old_sex = record
+class Database:
+    """Класс для управления базой данных (коллекцией таблиц)"""
 
-            # Новые значения (если переданы — используем их, иначе оставляем старые)
-            new_fn = first_name if first_name is not None else old_fn
-            new_sn = second_name if second_name is not None else old_sn
-            new_age = age if age is not None else old_age
-            new_sex = sex if sex is not None else old_sex
+    def __init__(self):
+        self._tables: dict[str, Table] = {}
 
-            # Создаём обновлённую запись
-            updated: StudentRecord = (student_id, new_fn, new_sn, new_age, new_sex)
+    def create_table(self, name: str, columns: list[str]) -> Table:
+        """Создает новую таблицу"""
+        name = name.strip()
 
-            # Заменяем в списке
-            Student[i] = updated
-            return updated
+        if not name:
+            raise EmptyTableNameError("Имя таблицы не может быть пустым")
 
-    # Если ID не найден
-    return None
+        if not columns:
+            raise EmptyColumnsError("Таблица должна содержать хотя бы одну колонку")
 
+        if len(columns) != len(set(columns)):
+            raise InvalidColumnNameError("Названия колонок не должны повторяться")
 
-def delete_record(student_id: int) -> bool:
-    """
-    Удаляет запись по ID.
-    Возвращает True, если удаление успешно, иначе False.
-    """
-    for i, record in enumerate(Student):
-        if record[0] == student_id:
-            Student.pop(i)
-            return True
-    return False
+        if name in self._tables:
+            raise DuplicateTableError(f"Таблица '{name}' уже существует")
+
+        table = Table(name, columns.copy())
+        self._tables[name] = table
+        return table
+
+    def list_tables(self) -> list[str]:
+        """Возвращает список всех таблиц"""
+        return list(self._tables.keys())
+
+    def get_table(self, name: str) -> Table | None:
+        """Возвращает таблицу по имени"""
+        return self._tables.get(name)
+
+    def get_columns(self, name: str) -> list[str]:
+        """Возвращает список колонок таблицы"""
+        table = self._tables.get(name)
+        if not table:
+            raise TableNotFoundError(f"Таблица '{name}' не найдена")
+        return table.columns.copy()
+
+    def delete_table(self, name: str) -> None:
+        """Удаляет таблицу полностью"""
+        if name not in self._tables:
+            raise TableNotFoundError(f"Таблица '{name}' не найдена")
+        del self._tables[name]
+
+    def clear_table(self, name: str) -> None:
+        """Очищает все записи в таблице"""
+        table = self._tables.get(name)
+        if not table:
+            raise TableNotFoundError(f"Таблица '{name}' не найдена")
+        table.clear()
+
+    def rename_table(self, old_name: str, new_name: str) -> None:
+        """Переименовывает таблицу"""
+        old_name = old_name.strip()
+        new_name = new_name.strip()
+
+        if not old_name or not new_name:
+            raise EmptyTableNameError("Имя таблицы не может быть пустым")
+
+        if old_name not in self._tables:
+            raise TableNotFoundError(f"Таблица '{old_name}' не найдена")
+
+        if new_name in self._tables:
+            raise DuplicateTableError(f"Таблица '{new_name}' уже существует")
+
+        table = self._tables.pop(old_name)
+        table.name = new_name
+        self._tables[new_name] = table
+
+    def rename_column(self, table_name: str, old_column: str, new_column: str) -> None:
+        """Переименовывает колонку"""
+        table = self._tables.get(table_name)
+        if not table:
+            raise TableNotFoundError(f"Таблица '{table_name}' не найдена")
+        table.rename_column(old_column, new_column)
+
+    def table_exists(self, name: str) -> bool:
+        """Проверяет существование таблицы"""
+        return name in self._tables
+
+    def get_all_info(self) -> dict[str, tuple[list[str], int]]:
+        """Возвращает информацию обо всех таблицах"""
+        result = {}
+        for name, table in self._tables.items():
+            result[name] = (table.columns.copy(), len(table.records))
+        return result
+
+    def insert_record(self, table_name: str, record: tuple[Any, ...]) -> None:
+        """Добавляет запись"""
+        table = self._tables.get(table_name)
+        if not table:
+            raise TableNotFoundError(f"Таблица '{table_name}' не найдена")
+        table.add_record(record)
+
+    def select_records(self, table_name: str, **filters: Any) -> list[tuple[Any, ...]]:
+        """Возвращает записи по фильтру"""
+        table = self._tables.get(table_name)
+        if not table:
+            raise TableNotFoundError(f"Таблица '{table_name}' не найдена")
+        return table.get_records(**filters)
+
+    def update_records(
+        self, table_name: str, updates: dict[str, Any], **filters: Any
+    ) -> int:
+        """Обновляет записи по фильтру"""
+        table = self._tables.get(table_name)
+        if not table:
+            raise TableNotFoundError(f"Таблица '{table_name}' не найдена")
+        return table.update_records(updates, **filters)
+
+    def update_records_by_indexes(
+        self, table_name: str, indexes: list[int], updates: dict[str, Any]
+    ) -> int:
+        """Обновляет записи по списку индексов"""
+        table = self._tables.get(table_name)
+        if not table:
+            raise TableNotFoundError(f"Таблица '{table_name}' не найдена")
+        return table.update_records_by_indexes(indexes, updates)
+
+    def delete_records(self, table_name: str, **filters: Any) -> int:
+        """Удаляет записи по фильтру"""
+        table = self._tables.get(table_name)
+        if not table:
+            raise TableNotFoundError(f"Таблица '{table_name}' не найдена")
+        return table.delete_records(**filters)
+
+    def delete_records_by_indexes(self, table_name: str, indexes: list[int]) -> int:
+        """Удаляет записи по списку индексов"""
+        table = self._tables.get(table_name)
+        if not table:
+            raise TableNotFoundError(f"Таблица '{table_name}' не найдена")
+        return table.delete_records_by_indexes(indexes)
+
+    def get_record_by_index(self, table_name: str, index: int) -> tuple[Any, ...]:
+        """Возвращает запись по индексу"""
+        table = self._tables.get(table_name)
+        if not table:
+            raise TableNotFoundError(f"Таблица '{table_name}' не найдена")
+        return table.get_record_by_index(index)
+
+    def delete_record_by_index(self, table_name: str, index: int) -> None:
+        """Удаляет запись по индексу"""
+        table = self._tables.get(table_name)
+        if not table:
+            raise TableNotFoundError(f"Таблица '{table_name}' не найдена")
+        table.delete_record_by_index(index)
+
+    def update_record_by_index(
+        self, table_name: str, index: int, updates: dict[str, Any]
+    ) -> None:
+        """Обновляет запись по индексу"""
+        table = self._tables.get(table_name)
+        if not table:
+            raise TableNotFoundError(f"Таблица '{table_name}' не найдена")
+        table.update_record_by_index(index, updates)
+
+    def sort_records(
+        self, table_name: str, column: str, reverse: bool = False
+    ) -> list[tuple[Any, ...]]:
+        """Сортирует записи в таблице по указанной колонке"""
+        table = self._tables.get(table_name)
+        if not table:
+            raise TableNotFoundError(f"Таблица '{table_name}' не найдена")
+        return table.sort_records(column, reverse)

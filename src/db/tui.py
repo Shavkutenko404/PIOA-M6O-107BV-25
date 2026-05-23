@@ -1,226 +1,674 @@
-# Импортируем из модуля backend.memory функции, реализующие операции
-# создания записи и выборки записей из таблицы.
-from .backend.memory import create_record, select_record, delete_record, update_record
+from src.db.backend.memory import Database
+from src.db.backend.errors import (
+    TableNotFoundError,
+    ColumnNotFoundError,
+    DuplicateTableError,
+    EmptyColumnsError,
+    EmptyTableNameError,
+    RecordNotFoundError,
+    InvalidColumnNameError,
+)
 
 
-# Функция вывода текстового меню в консоль.
-def _print_menu() -> None:
-    # Символ \n обозначает перевод строки.
-    print("\n=== База студентов ===")
-    print("1. Добавить запись")
-    print("2. Показать все записи")
-    print("3. Найти записи по фильтру")
-    print("4. Обновить запись")
-    print("5. Удалить запись")
-    print("0. Выход")
+class TUI:
+    """Класс для текстового пользовательского интерфейса"""
 
+    def __init__(self, db=None):
+        """Инициализация интерфейса"""
+        self._current_table: str | None = None
+        if db is None:
+            self._db = Database()
+        else:
+            self._db = db
 
-# Функция чтения целочисленного значения из консоли.
-def _read_int(prompt: str) -> int:
-    # Используется цикл с повторением до получения корректного ввода.
-    while True:
-        # Получение строки из консоли с удалением пробельных символов
-        # в начале и в конце строки.
-        raw = input(prompt).strip()
-        try:
-            # Преобразование строки к целому числу.
-            return int(raw)
-        except ValueError:
-            # Исключение возникает при невозможности преобразования.
-            # Пользователю выводится сообщение об ошибке,
-            # после чего ввод повторяется.
-            print("Ошибка: введите целое число.")
+    def run(self) -> None:
+        """Главный цикл программы"""
+        print("\n=== Добро пожаловать в систему управления БД ===")
 
+        while True:
+            if self._current_table:
+                print(f"\n🔹 Текущая таблица: {self._current_table}")
+            self._print_menu()
 
-# Функция добавления новой записи в базу данных.
-def _add_student() -> None:
-    print("\nДобавление записи")
+            action = input("Выберите действие: ").strip()
 
-    student_id = _read_int("id: ")
-    first_name = input("first_name: ").strip()
-    second_name = input("second_name: ").strip()
-    age = _read_int("age: ")
-    sex = input("sex: ").strip()
+            if action == "1":
+                self._create_new_table()
+            elif action == "2":
+                self._select_table()
+            elif action == "3":
+                self._show_tables()
+            elif action == "4":
+                self._show_current_table_info()
+            elif action == "5":
+                self._add_record()
+            elif action == "6":
+                self._show_all_records()
+            elif action == "7":
+                self._find_records()
+            elif action == "8":
+                self._update_records()
+            elif action in ("9.1", "91"):
+                self._delete_by_filter()
+            elif action in ("9.2", "92"):
+                self._clear_table()
+            elif action == "10":
+                self._delete_table()
+            elif action == "11":
+                self._rename_table()
+            elif action == "12":
+                self._rename_column()
+            elif action == "13":
+                self._sort_records()
+            elif action == "0":
+                print("Выход из программы.")
+                break
+            else:
+                print("Неизвестная команда. Повторите ввод.")
 
-    try:
-        # Вызов функции слоя бизнес-логики.
-        record = create_record(student_id, first_name, second_name, age, sex)
+    def _print_menu(self) -> None:
+        """Отображает меню программы"""
+        print("\n=== Система управления базами данных ===")
+        print("1. Создать новую таблицу")
+        print("2. Выбрать текущую таблицу")
+        print("3. Показать все таблицы")
+        print("4. Показать информацию о текущей таблице")
+        print("5. Добавить запись")
+        print("6. Показать все записи")
+        print("7. Найти записи по фильтру")
+        print("8. Обновить записи по фильтру")
+        print("9. Удалить записи:")
+        print("   9.1. Удалить по фильтру")
+        print("   9.2. Очистить всю таблицу")
+        print("10. Удалить таблицу")
+        print("11. Переименовать текущую таблицу")
+        print("12. Переименовать колонку")
+        print("13. Сортировать записи")
+        print("0. Выход")
 
-        # В случае успешного добавления запись выводится в консоль.
-        print(f"Запись добавлена: {record}")
+    def _create_new_table(self) -> None:
+        """Создание новой таблицы с колонками"""
+        print("\n--- Создание новой таблицы ---")
 
-    except ValueError as exc:
-        # Обработка ошибок валидации.
-        print(f"Ошибка: {exc}")
-
-
-# Вспомогательная функция вывода списка записей.
-def _print_records(records: list[tuple[int, str, str, int, str]]) -> None:
-    # Проверка на пустой список.
-    if not records:
-        print("Записи не найдены.")
-        return
-
-    # Последовательный вывод записей.
-    for record in records:
-        print(record)
-
-
-# Функция вывода всех записей из базы данных.
-def _show_all_students() -> None:
-    print("\nСписок записей")
-    _print_records(select_record())
-
-
-# Функция чтения необязательного целочисленного значения.
-# Пустой ввод интерпретируется как отсутствие фильтра (None).
-def _read_optional_int(prompt: str) -> int | None:
-    while True:
-        raw = input(prompt).strip()
-
-        if raw == "":
-            return None
-
-        try:
-            return int(raw)
-        except ValueError:
-            print("Ошибка: введите целое число или оставьте поле пустым.")
-
-
-# Функция поиска записей по заданным фильтрам.
-def _find_students_by_filter() -> None:
-    print("\nПоиск по фильтру (Enter = пропустить поле)")
-
-    student_id = _read_optional_int("id: ")
-
-    # Оператор `or` возвращает первое истинное значение.
-    # Если строка после strip() пуста, будет возвращено None.
-    first_name = input("first_name: ").strip() or None
-    second_name = input("second_name: ").strip() or None
-
-    age = _read_optional_int("age: ")
-    sex = input("sex: ").strip() or None
-
-    records = select_record(
-        student_id=student_id,
-        first_name=first_name,
-        second_name=second_name,
-        age=age,
-        sex=sex,
-    )
-
-    _print_records(records)
-
-
-def _update_student() -> None:
-    """Обновление существующей записи"""
-    print("\n=== Обновление записи ===")
-
-    student_id = _read_int("Введите ID студента для обновления: ")
-
-    # Проверим, есть ли такая запись
-    found = select_record(student_id=student_id)
-    if not found:
-        print(f"Запись с id={student_id} не найдена.")
-        return
-
-    print("Текущие данные:", found[0])
-    print("\nВведите новые значения (Enter = оставить без изменений):")
-
-    first_name = input("first_name: ").strip() or None
-    second_name = input("second_name: ").strip() or None
-
-    print("Если хотите оставить возраст без изменений, просто нажмите Enter")
-    age_input = input("age: ").strip()
-    age = None
-    if age_input:
-        try:
-            age = int(age_input)
-            if age < 0:
-                print("Ошибка: возраст не может быть отрицательным.")
-                return
-        except ValueError:
-            print("Ошибка: введите целое число.")
+        table_name = input("Введите имя таблицы: ").strip()
+        if not table_name:
+            print("✗ Имя таблицы не может быть пустым")
             return
 
-    sex = input("sex: ").strip() or None
+        print("Введите названия колонок через пробел")
+        columns_input = input("Колонки: ").strip().split()
 
-    try:
-        updated = update_record(
-            student_id=student_id,
-            first_name=first_name,
-            second_name=second_name,
-            age=age,
-            sex=sex,
+        if not columns_input:
+            print("✗ Нужно указать хотя бы одну колонку")
+            return
+
+        try:
+            self._db.create_table(table_name, columns_input)
+            print(f"✓ Таблица '{table_name}' создана")
+        except (
+            DuplicateTableError,
+            EmptyTableNameError,
+            EmptyColumnsError,
+            InvalidColumnNameError,
+        ) as e:
+            print(f"✗ Ошибка: {e}")
+
+    def _select_table(self) -> None:
+        """Выбор текущей таблицы"""
+        tables = self._db.list_tables()
+        if not tables:
+            print("📭 Нет созданных таблиц")
+            return
+
+        print("\nДоступные таблицы:")
+        for i, table in enumerate(tables, 1):
+            print(f"{i}. {table}")
+
+        while True:
+            choice = input("\nВыберите таблицу (номер или имя): ").strip()
+            if choice.isdigit():
+                idx = int(choice) - 1
+                if 0 <= idx < len(tables):
+                    self._current_table = tables[idx]
+                    print(f"✓ Текущая таблица: {self._current_table}")
+                    return
+            elif choice in tables:
+                self._current_table = choice
+                print(f"✓ Текущая таблица: {self._current_table}")
+                return
+            print("Неверный выбор. Попробуйте снова.")
+
+    def _show_tables(self) -> None:
+        """Показать все таблицы"""
+        tables = self._db.list_tables()
+
+        if not tables:
+            print("📭 Нет созданных таблиц")
+            return
+
+        print("\n📋 Список всех таблиц:")
+        for table_name in tables:
+            try:
+                columns = self._db.get_columns(table_name)
+                records = self._db.select_records(table_name)
+                print(f"   • {table_name}: {len(records)} записей, колонки: {columns}")
+            except Exception as e:
+                print(f"   • {table_name}: ошибка - {e}")
+        print()
+
+    def _show_current_table_info(self) -> None:
+        """Показать информацию о текущей таблице"""
+        if not self._current_table:
+            print("⚠️ Сначала выберите таблицу (пункт 2)")
+            return
+
+        if not self._db.table_exists(self._current_table):
+            print(f"❌ Таблица '{self._current_table}' не найдена")
+            self._current_table = None
+            return
+
+        columns = self._db.get_columns(self._current_table)
+        records = self._db.select_records(self._current_table)
+        print(f"\n📋 Текущая таблица: {self._current_table}")
+        print(f"   Колонки: {columns}")
+        print(f"   Записей: {len(records)}")
+
+    def _add_record(self) -> None:
+        """Добавление записи в текущую таблицу"""
+        if not self._current_table:
+            print("⚠️ Сначала выберите таблицу (пункт 2)")
+            return
+
+        if not self._db.table_exists(self._current_table):
+            print(f"❌ Таблица '{self._current_table}' не найдена")
+            self._current_table = None
+            return
+
+        columns = self._db.get_columns(self._current_table)
+
+        print(f"\n--- Добавление записи в таблицу '{self._current_table}' ---")
+        print(f"Колонки: {columns}")
+
+        values = []
+        for col in columns:
+            val = input(f"{col}: ").strip()
+            while val == "":
+                print(f"❌ Поле '{col}' не может быть пустым. Введите значение.")
+                val = input(f"{col}: ").strip()
+            values.append(val)
+
+        try:
+            self._db.insert_record(self._current_table, tuple(values))
+            print("✓ Запись добавлена")
+        except Exception as e:
+            print(f"✗ Не удалось добавить запись: {e}")
+
+    def _show_all_records(self) -> None:
+        """Показать все записи текущей таблицы"""
+        if not self._current_table:
+            print("⚠️ Сначала выберите таблицу (пункт 2)")
+            return
+
+        if not self._db.table_exists(self._current_table):
+            print(f"❌ Таблица '{self._current_table}' не найдена")
+            self._current_table = None
+            return
+
+        records = self._db.select_records(self._current_table)
+        columns = self._db.get_columns(self._current_table)
+
+        if not records:
+            print("📭 Записей нет")
+            return
+
+        print(f"\n--- Записи таблицы '{self._current_table}' ---")
+        print(f"Колонки: {columns}")
+        for i, record in enumerate(records, 1):
+            print(f"{i}. {record}")
+
+    def _find_records(self) -> None:
+        """Поиск записей по фильтру"""
+        if not self._current_table:
+            print("⚠️ Сначала выберите таблицу (пункт 2)")
+            return
+
+        if not self._db.table_exists(self._current_table):
+            print(f"❌ Таблица '{self._current_table}' не найдена")
+            self._current_table = None
+            return
+
+        print(f"\n--- Поиск в таблице '{self._current_table}' ---")
+        print("Введите фильтры в формате колонка=значение")
+        print("(несколько фильтров через пробел, Enter = все записи)")
+        filter_str = input("→ ").strip()
+
+        filters = {}
+        if filter_str:
+            for item in filter_str.split():
+                if "=" in item:
+                    key, val = item.split("=", 1)
+                    key = key.strip()
+                    val = val.strip()
+
+                    if key and val:
+                        filters[key] = val
+                    else:
+                        print(f"⚠️ Пропущен некорректный фильтр: {item}")
+
+        try:
+            records = self._db.select_records(self._current_table, **filters)
+            if not records:
+                print("🔍 Записей не найдено")
+                return
+            print(f"\nНайдено записей: {len(records)}")
+            for i, record in enumerate(records, 1):
+                print(f"{i}. {record}")
+        except Exception as e:
+            print(f"❌ Ошибка: {e}")
+
+    def _update_records(self) -> None:
+        """Обновление записей по фильтру"""
+        if not self._current_table:
+            print("⚠️ Сначала выберите таблицу (пункт 2)")
+            return
+
+        if not self._db.table_exists(self._current_table):
+            print(f"❌ Таблица '{self._current_table}' не найдена")
+            self._current_table = None
+            return
+
+        print(f"\n--- Обновление записей в таблице '{self._current_table}' ---")
+
+        print("Введите ФИЛЬТР для поиска записей (колонка=значение)")
+        filter_str = input("Фильтр → ").strip()
+
+        filters = {}
+        if filter_str:
+            for item in filter_str.split():
+                if "=" in item:
+                    key, val = item.split("=", 1)
+                    key = key.strip()
+                    val = val.strip()
+                    filters[key] = val
+
+        try:
+            found_records = self._db.select_records(self._current_table, **filters)
+        except Exception as e:
+            print(f"❌ Ошибка: {e}")
+            return
+
+        if not found_records:
+            print("🔍 Записей не найдено")
+            return
+
+        print(f"\nНайдено {len(found_records)} записей:")
+        for i, record in enumerate(found_records, 1):
+            print(f"{i}. {record}")
+
+        print("\nВыберите записи для обновления (номера через пробел, 'all' - все):")
+        choice = input("→ ").strip().lower()
+
+        if not choice:
+            print("❌ Обновление отменено")
+            return
+
+        # Получаем все записи таблицы для поиска реальных индексов
+        all_records = self._db.select_records(self._current_table)
+
+        # Находим реальные индексы выбранных записей
+        selected_real_indexes = []
+        if choice == "all":
+            for record in found_records:
+                for i, r in enumerate(all_records):
+                    if r == record:
+                        selected_real_indexes.append(i)
+                        break
+        else:
+            for num in choice.split():
+                try:
+                    idx_in_found = int(num) - 1
+                    if 0 <= idx_in_found < len(found_records):
+                        record = found_records[idx_in_found]
+                        for i, r in enumerate(all_records):
+                            if r == record:
+                                selected_real_indexes.append(i)
+                                break
+                    else:
+                        print(f"⚠️ Номер {num} вне диапазона")
+                except ValueError:
+                    print(f"⚠️ Некорректный номер: {num}")
+
+        # Удаляем дубликаты и сортируем по убыванию
+        selected_real_indexes = sorted(set(selected_real_indexes), reverse=True)
+
+        if not selected_real_indexes:
+            print("❌ Не выбрано ни одной записи")
+            return
+
+        print(f"\nВыбрано {len(selected_real_indexes)} записей для обновления:")
+        for real_idx in selected_real_indexes:
+            print(f"  • {all_records[real_idx]}")
+
+        confirm = input(f"\nВы уверены? (д/н): ").strip().lower()
+        if confirm not in ("д", "yes", "y", "да"):
+            print("Обновление отменено")
+            return
+
+        print("\nВведите ЧТО обновлять (колонка=значение)")
+        updates_str = input("Обновления → ").strip()
+
+        updates = {}
+        if updates_str:
+            for item in updates_str.split():
+                if "=" in item:
+                    key, val = item.split("=", 1)
+                    key = key.strip()
+                    val = val.strip()
+                    updates[key] = val
+
+        if not updates:
+            print("✗ Нет данных для обновления")
+            return
+
+        try:
+            updated = self._db.update_records_by_indexes(
+                self._current_table, selected_real_indexes, updates
+            )
+            print(f"✓ Обновлено {updated} из {len(selected_real_indexes)} записей")
+        except (ColumnNotFoundError, RecordNotFoundError) as e:
+            print(f"✗ Ошибка: {e}")
+        except Exception as e:
+            print(f"❌ Ошибка: {e}")
+
+    def _delete_by_filter(self) -> None:
+        """Удаление записей по фильтру"""
+        if not self._current_table:
+            print("⚠️ Сначала выберите таблицу (пункт 2)")
+            return
+
+        if not self._db.table_exists(self._current_table):
+            print(f"❌ Таблица '{self._current_table}' не найдена")
+            self._current_table = None
+            return
+
+        print(
+            f"\n--- Удаление записей по фильтру из таблицы '{self._current_table}' ---"
         )
-        if updated:
-            print("Запись успешно обновлена:", updated)
+        print("Введите фильтры в формате колонка=значение")
+        print("(несколько фильтров через пробел)")
+        filter_str = input("→ ").strip()
+
+        if not filter_str:
+            print("✗ Нужно указать хотя бы один фильтр")
+            return
+
+        filters = {}
+        for item in filter_str.split():
+            if "=" in item:
+                key, val = item.split("=", 1)
+                key = key.strip()
+                val = val.strip()
+                if key and val:
+                    filters[key] = val
+                else:
+                    print(f"⚠️ Пропущен некорректный фильтр: {item}")
+
+        if not filters:
+            print("✗ Нет корректных фильтров для удаления")
+            return
+
+        try:
+            to_delete = self._db.select_records(self._current_table, **filters)
+        except Exception as e:
+            print(f"❌ Ошибка: {e}")
+            return
+
+        if not to_delete:
+            print("🔍 Записей, соответствующих фильтру, не найдено")
+            return
+
+        print(f"\nНайдено {len(to_delete)} записей:")
+        for i, record in enumerate(to_delete, 1):
+            print(f"{i}. {record}")
+
+        print("\nВыберите записи для удаления (номера через пробел, 'all' - все):")
+        choice = input("→ ").strip().lower()
+
+        if not choice:
+            print("❌ Удаление отменено")
+            return
+
+        # Получаем все записи таблицы для поиска реальных индексов
+        all_records = self._db.select_records(self._current_table)
+
+        # Находим реальные индексы выбранных записей
+        selected_real_indexes = []
+        if choice == "all":
+            for record in to_delete:
+                for i, r in enumerate(all_records):
+                    if r == record:
+                        selected_real_indexes.append(i)
+                        break
         else:
-            print("Ошибка при обновлении записи.")
-    except ValueError as exc:
-        print(f"Ошибка: {exc}")
+            for num in choice.split():
+                try:
+                    idx_in_found = int(num) - 1
+                    if 0 <= idx_in_found < len(to_delete):
+                        record = to_delete[idx_in_found]
+                        for i, r in enumerate(all_records):
+                            if r == record:
+                                selected_real_indexes.append(i)
+                                break
+                    else:
+                        print(f"⚠️ Номер {num} вне диапазона")
+                except ValueError:
+                    print(f"⚠️ Некорректный номер: {num}")
 
+        # Удаляем дубликаты и сортируем по убыванию
+        selected_real_indexes = sorted(set(selected_real_indexes), reverse=True)
 
-def _delete_student() -> None:
-    """Удаление записи"""
-    print("\n=== Удаление записи ===")
+        if not selected_real_indexes:
+            print("❌ Не выбрано ни одной записи")
+            return
 
-    student_id = _read_int("Введите ID студента для удаления: ")
+        print(f"\nВыбрано {len(selected_real_indexes)} записей для удаления:")
+        for real_idx in selected_real_indexes:
+            print(f"  • {all_records[real_idx]}")
 
-    found = select_record(student_id=student_id)
-    if not found:
-        print(f"Запись с id={student_id} не найдена.")
-        return
+        confirm = input(f"\nВы уверены? (д/н): ").strip().lower()
+        if confirm not in ("д", "yes", "y", "да"):
+            print("Удаление отменено")
+            return
 
-    print("Будет удалена запись:", found[0])
-    confirm = input("Подтвердите удаление (y/n): ").strip().lower()
+        try:
+            deleted = self._db.delete_records_by_indexes(
+                self._current_table, selected_real_indexes
+            )
+            print(f"✓ Удалено {deleted} из {len(selected_real_indexes)} записей")
+        except Exception as e:
+            print(f"❌ Ошибка: {e}")
 
-    if confirm == "y":
-        if delete_record(student_id):
-            print("Запись успешно удалена.")
+    def _clear_table(self) -> None:
+        """Очистить всю таблицу"""
+        if not self._current_table:
+            print("⚠️ Сначала выберите таблицу (пункт 2)")
+            return
+
+        if not self._db.table_exists(self._current_table):
+            print(f"❌ Таблица '{self._current_table}' не найдена")
+            self._current_table = None
+            return
+
+        records = self._db.select_records(self._current_table)
+        count = len(records)
+
+        if count == 0:
+            print("📭 Таблица уже пуста")
+            return
+
+        print(f"\n--- Очистка таблицы '{self._current_table}' ---")
+        print(f"Будет удалено {count} записей")
+        confirm = input("Вы уверены? (д/н): ").strip().lower()
+
+        if confirm in ("д", "yes", "y", "да"):
+            try:
+                self._db.clear_table(self._current_table)
+                print(f"✓ Таблица '{self._current_table}' очищена")
+            except Exception as e:
+                print(f"❌ Ошибка: {e}")
         else:
-            print("Ошибка при удалении.")
-    else:
-        print("Удаление отменено.")
+            print("Очистка отменена")
+
+    def _rename_table(self) -> None:
+        """Переименование текущей таблицы"""
+        if not self._current_table:
+            print("⚠️ Сначала выберите таблицу (пункт 2)")
+            return
+
+        print(f"\n--- Переименование таблицы '{self._current_table}' ---")
+        new_name = input("Введите новое имя таблицы: ").strip()
+
+        if not new_name:
+            print("✗ Имя не может быть пустым")
+            return
+
+        if new_name == self._current_table:
+            print("✗ Новое имя совпадает со старым")
+            return
+
+        try:
+            self._db.rename_table(self._current_table, new_name)
+            self._current_table = new_name
+            print(f"✓ Таблица переименована в '{new_name}'")
+        except (TableNotFoundError, DuplicateTableError, EmptyTableNameError) as e:
+            print(f"✗ {e}")
+
+    def _delete_table(self) -> None:
+        """Удаление таблицы"""
+        tables = self._db.list_tables()
+        if not tables:
+            print("📭 Нет созданных таблиц")
+            return
+
+        print("\n--- Удаление таблицы ---")
+        print("Доступные таблицы:")
+        for i, table in enumerate(tables, 1):
+            print(f"{i}. {table}")
+
+        table_name = input("Введите имя таблицы для удаления: ").strip()
+        if not table_name:
+            print("✗ Имя таблицы не может быть пустым")
+            return
+
+        if table_name not in tables:
+            print(f"❌ Таблица '{table_name}' не найдена")
+            return
+
+        confirm = (
+            input(f"Вы уверены, что хотите удалить таблицу '{table_name}'? (д/н): ")
+            .strip()
+            .lower()
+        )
+        if confirm in ("д", "yes", "y", "да"):
+            try:
+                self._db.delete_table(table_name)
+                if self._current_table == table_name:
+                    self._current_table = None
+                    print("⚠️ Текущая таблица сброшена")
+                print(f"✓ Таблица '{table_name}' удалена")
+            except Exception as e:
+                print(f"❌ Ошибка: {e}")
+        else:
+            print("Удаление отменено")
+
+    def _rename_column(self) -> None:
+        """Переименование колонки в текущей таблице"""
+        if not self._current_table:
+            print("⚠️ Сначала выберите таблицу (пункт 2)")
+            return
+
+        if not self._db.table_exists(self._current_table):
+            print(f"❌ Таблица '{self._current_table}' не найдена")
+            self._current_table = None
+            return
+
+        columns = self._db.get_columns(self._current_table)
+
+        print(f"\n--- Переименование колонки в таблице '{self._current_table}' ---")
+        print(f"Существующие колонки: {columns}")
+
+        old_name = input("Введите старое название колонки: ").strip()
+        if not old_name:
+            print("✗ Имя не может быть пустым")
+            return
+
+        if old_name not in columns:
+            print(f"✗ Колонка '{old_name}' не найдена")
+            return
+
+        new_name = input("Введите новое название колонки: ").strip()
+        if not new_name:
+            print("✗ Имя не может быть пустым")
+            return
+
+        if new_name in columns:
+            print(f"✗ Колонка '{new_name}' уже существует")
+            return
+
+        try:
+            self._db.rename_column(self._current_table, old_name, new_name)
+            print("✓ Колонка переименована")
+        except (TableNotFoundError, ColumnNotFoundError) as e:
+            print(f"✗ {e}")
+
+    def _sort_records(self) -> None:
+        """Сортировка записей текущей таблицы"""
+        if not self._current_table:
+            print("⚠️ Сначала выберите таблицу (пункт 2)")
+            return
+
+        if not self._db.table_exists(self._current_table):
+            print(f"❌ Таблица '{self._current_table}' не найдена")
+            self._current_table = None
+            return
+
+        columns = self._db.get_columns(self._current_table)
+
+        print(f"\n--- Сортировка таблицы '{self._current_table}' ---")
+        print(f"Доступные колонки: {columns}")
+
+        column = input("Введите название колонки для сортировки: ").strip()
+        if not column:
+            print("✗ Сортировка отменена")
+            return
+
+        if column not in columns:
+            print(f"✗ Колонка '{column}' не найдена")
+            return
+
+        print("Порядок сортировки:")
+        print("1. По возрастанию")
+        print("2. По убыванию")
+        order = input("Выберите (1/2): ").strip()
+
+        reverse = order == "2"
+
+        try:
+            records = self._db.sort_records(self._current_table, column, reverse)
+            if not records:
+                print("📭 Записей нет")
+                return
+
+            print(
+                f"\n--- Отсортированные записи по колонке '{column}' {'(убывание)' if reverse else '(возрастание)'} ---"
+            )
+            for i, record in enumerate(records, 1):
+                print(f"{i}. {record}")
+        except Exception as e:
+            print(f"❌ Ошибка: {e}")
 
 
 def run() -> None:
-    """
-    Запускает основной цикл текстового пользовательского интерфейса.
-
-    Цикл выполняется до тех пор, пока пользователь явно
-    не выберет завершение программы.
-    """
-    while True:
-        # Отображение меню доступных действий.
-        _print_menu()
-
-        # Получение команды пользователя.
-        # Метод strip() удаляет пробельные символы
-        # в начале и в конце строки.
-        action = input("Выберите действие: ").strip()
-
-        # Диспетчеризация пользовательской команды.
-        if action == "1":
-            _add_student()
-
-        elif action == "2":
-            _show_all_students()
-
-        elif action == "3":
-            _find_students_by_filter()
-
-        elif action == "4":
-            _update_student()
-
-        elif action == "5":
-            _delete_student()
-
-        elif action == "0":
-            # Завершение работы программы.
-            print("Выход из программы.")
-            break
-
-        else:
-            # Обработка некорректного ввода команды.
-            print("Неизвестная команда. Повторите ввод.")
+    """Точка входа для совместимости с __main__.py"""
+    tui = TUI()
+    tui.run()
