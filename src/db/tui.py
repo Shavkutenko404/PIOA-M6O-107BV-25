@@ -1,6 +1,8 @@
 # Импортируем из модуля backend.memory функции, реализующие операции
 # создания записи и выборки записей из таблицы.
 from .backend.memory import create_record, select_record, delete_record, update_record
+
+
 # Функция вывода текстового меню в консоль.
 def _print_menu() -> None:
     # Символ \n обозначает перевод строки.
@@ -29,6 +31,7 @@ def _read_int(prompt: str) -> int:
             # после чего ввод повторяется.
             print("Ошибка: введите целое число.")
 
+
 # Функция добавления новой записи в базу данных.
 def _add_student() -> None:
     print("\nДобавление записи")
@@ -50,6 +53,7 @@ def _add_student() -> None:
         # Обработка ошибок валидации.
         print(f"Ошибка: {exc}")
 
+
 # Вспомогательная функция вывода списка записей.
 def _print_records(records: list[tuple[int, str, str, int, str]]) -> None:
     # Проверка на пустой список.
@@ -61,10 +65,12 @@ def _print_records(records: list[tuple[int, str, str, int, str]]) -> None:
     for record in records:
         print(record)
 
+
 # Функция вывода всех записей из базы данных.
 def _show_all_students() -> None:
     print("\nСписок записей")
     _print_records(select_record())
+
 
 # Функция чтения необязательного целочисленного значения.
 # Пустой ввод интерпретируется как отсутствие фильтра (None).
@@ -79,6 +85,7 @@ def _read_optional_int(prompt: str) -> int | None:
             return int(raw)
         except ValueError:
             print("Ошибка: введите целое число или оставьте поле пустым.")
+
 
 # Функция поиска записей по заданным фильтрам.
 def _find_students_by_filter() -> None:
@@ -103,6 +110,8 @@ def _find_students_by_filter() -> None:
     )
 
     _print_records(records)
+
+
 def _update_student() -> None:
     """Обновление существующей записи"""
     print("\n=== Обновление записи ===")
@@ -142,7 +151,7 @@ def _update_student() -> None:
             first_name=first_name,
             second_name=second_name,
             age=age,
-            sex=sex
+            sex=sex,
         )
         if updated:
             print("Запись успешно обновлена:", updated)
@@ -166,13 +175,15 @@ def _delete_student() -> None:
     print("Будет удалена запись:", found[0])
     confirm = input("Подтвердите удаление (y/n): ").strip().lower()
 
-    if confirm == 'y':
+    if confirm == "y":
         if delete_record(student_id):
             print("Запись успешно удалена.")
         else:
             print("Ошибка при удалении.")
     else:
         print("Удаление отменено.")
+
+
 def run() -> None:
     """
     Запускает основной цикл текстового пользовательского интерфейса.
@@ -213,4 +224,3 @@ def run() -> None:
         else:
             # Обработка некорректного ввода команды.
             print("Неизвестная команда. Повторите ввод.")
-
