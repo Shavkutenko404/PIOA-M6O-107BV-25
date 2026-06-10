@@ -10,6 +10,10 @@ from src.db.backend.errors import (
     RecordNotFoundError,
     InvalidColumnNameError,
 )
+from src.db.backend.memory import MemoryDatabase
+from src.db.backend.table import Table
+
+# ... остальные импорты
 
 
 class TestDatabase(unittest.TestCase):
@@ -17,7 +21,7 @@ class TestDatabase(unittest.TestCase):
 
     def setUp(self):
         """Создаем чистую БД перед каждым тестом"""
-        self.db = Database()
+        self.db = MemoryDatabase()
 
     def test_create_table_success(self):
         """Успешное создание таблицы"""

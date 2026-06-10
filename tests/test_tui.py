@@ -1,6 +1,7 @@
 import unittest
 from src.db.backend.memory import Database
 from src.db.tui import TUI
+from src.db.backend.memory import MemoryDatabase
 
 
 class TestTUI(unittest.TestCase):
@@ -8,7 +9,7 @@ class TestTUI(unittest.TestCase):
 
     def setUp(self):
         """Очищаем БД перед каждым тестом и создаём TUI"""
-        self.db = Database()
+        self.db = MemoryDatabase()
         self.tui = TUI(db=self.db)
 
     def tearDown(self):

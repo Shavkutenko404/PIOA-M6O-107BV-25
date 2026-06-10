@@ -1,29 +1,9 @@
 class TableError(Exception):
-    """Базовый класс для ошибок таблиц"""
+    """Базовый класс для ошибок таблицы"""
 
     pass
 
 
-# Исключения для работы с таблицами (оценка 3)
-class StudentTableError(TableError):
-    """Базовый класс для ошибок таблицы Student"""
-
-    pass
-
-
-class InvalidAgeError(StudentTableError):
-    """Ошибка: некорректный возраст"""
-
-    pass
-
-
-class DuplicateIDError(StudentTableError):
-    """Ошибка: дубликат ID"""
-
-    pass
-
-
-# Дополнительные исключения для оценки 5 (ООП)
 class TableNotFoundError(TableError):
     """Ошибка: таблица не найдена"""
 
@@ -68,5 +48,17 @@ class RecordNotFoundError(TableError):
 
 class InvalidColumnNameError(TableError):
     """Ошибка: недопустимое название колонки (повторяющиеся имена)"""
+
+    pass
+
+
+class FileOperationError(TableError):
+    """Ошибка: проблема с файловой операцией (чтение/запись/удаление)"""
+
+    pass
+
+
+class InvalidFileFormatError(TableError):
+    """Ошибка: некорректный формат файла данных (не JSON/невалидный JSON)"""
 
     pass

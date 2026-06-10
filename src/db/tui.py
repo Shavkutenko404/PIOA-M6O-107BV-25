@@ -8,6 +8,8 @@ from src.db.backend.errors import (
     RecordNotFoundError,
     InvalidColumnNameError,
 )
+from src.db.backend.memory import MemoryDatabase
+from src.db.backend.file import FileDatabase
 
 
 class TUI:
@@ -17,9 +19,25 @@ class TUI:
         """Инициализация интерфейса"""
         self._current_table: str | None = None
         if db is None:
-            self._db = Database()
+            self._db = self._select_database_type()
         else:
             self._db = db
+
+    def _select_database_type(self):
+        """Выбор типа базы данных"""
+        print("\n=== Выбор типа базы данных ===")
+        print("1. In-memory (данные не сохраняются)")
+        print("2. File database (данные сохраняются в папку 'data/'")
+        choice = input("Выберите (1/2): ").strip()
+
+        if choice == "2":
+            print("✓ Используется файловая база данных")
+            return FileDatabase()
+        else:
+            print("✓ Используется in-memory база данных")
+            return MemoryDatabase()
+
+    # ... остальные методы (run, _print_menu и т.д.)
 
     def run(self) -> None:
         """Главный цикл программы"""
