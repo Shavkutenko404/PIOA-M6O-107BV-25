@@ -20,3 +20,12 @@ env/
 # Git
 *.orig
 
+# Database storage (JSON files)
+data/
+
+# Test coverage files
+.coverage
+htmlcov/
+.pytest_cache/
+
+
