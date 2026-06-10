@@ -128,6 +128,38 @@ class Table:
         """Количество записей в таблице"""
         return len(self.records)
 
+    def update_records_by_indexes(
+        self, indexes: list[int], updates: dict[str, Any]
+    ) -> int:
+        """Обновляет записи по списку индексов"""
+        # Проверяем, что все поля для обновления существуют
+        invalid_keys = [k for k in updates.keys() if k not in self.columns]
+        if invalid_keys:
+            raise ColumnNotFoundError(
+                f"Неизвестное поле: {', '.join(invalid_keys)}. "
+                f"Доступные поля: {self.columns}"
+            )
+
+        updated = 0
+        for idx in sorted(indexes, reverse=True):
+            if 0 <= idx < len(self.records):
+                record_list = list(self.records[idx])
+                for key, value in updates.items():
+                    col_idx = self.columns.index(key)
+                    record_list[col_idx] = value
+                self.records[idx] = tuple(record_list)
+                updated += 1
+        return updated
+
+    def delete_records_by_indexes(self, indexes: list[int]) -> int:
+        """Удаляет записи по списку индексов"""
+        deleted = 0
+        for idx in sorted(indexes, reverse=True):
+            if 0 <= idx < len(self.records):
+                del self.records[idx]
+                deleted += 1
+        return deleted
+
     def sort_records(self, column: str, reverse: bool = False) -> list[tuple[Any, ...]]:
         """Сортирует записи по указанной колонке"""
         if column not in self.columns:

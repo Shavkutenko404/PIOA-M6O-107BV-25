@@ -17,7 +17,7 @@ class MemoryDatabase(Database):
     def __init__(self):
         self._tables: dict[str, Table] = {}
 
-    def create_table(self, name: str, columns: list[str]) -> None:
+    def create_table(self, name: str, columns: list[str]) -> Table:
         """Создаёт новую таблицу"""
         name = name.strip()
 
@@ -33,7 +33,9 @@ class MemoryDatabase(Database):
         if name in self._tables:
             raise DuplicateTableError(f"Таблица '{name}' уже существует")
 
-        self._tables[name] = Table(name, columns)
+        table = Table(name, columns)
+        self._tables[name] = table
+        return table
 
     def list_tables(self) -> list[str]:
         """Возвращает список всех таблиц"""
@@ -149,6 +151,26 @@ class MemoryDatabase(Database):
         if not table:
             raise TableNotFoundError(f"Таблица '{table_name}' не найдена")
         table.update_record_by_index(index, updates)  # теперь None
+
+    def get_table(self, name: str) -> Table | None:
+        """Возвращает таблицу по имени"""
+        return self._tables.get(name)
+
+    def update_records_by_indexes(
+        self, table_name: str, indexes: list[int], updates: dict[str, Any]
+    ) -> int:
+        """Обновляет записи по списку индексов"""
+        table = self._tables.get(table_name)
+        if not table:
+            raise TableNotFoundError(f"Таблица '{table_name}' не найдена")
+        return table.update_records_by_indexes(indexes, updates)
+
+    def delete_records_by_indexes(self, table_name: str, indexes: list[int]) -> int:
+        """Удаляет записи по списку индексов"""
+        table = self._tables.get(table_name)
+        if not table:
+            raise TableNotFoundError(f"Таблица '{table_name}' не найдена")
+        return table.delete_records_by_indexes(indexes)
 
     def sort_records(
         self, table_name: str, column: str, reverse: bool = False
