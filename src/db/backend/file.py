@@ -43,6 +43,17 @@ class FileDatabase(Database):
         if not isinstance(data, dict):
             raise InvalidFileFormatError(f"Файл {table_name} не является словарём")
 
+        for i, record in enumerate(data["records"]):
+            if not isinstance(record, dict):
+                raise InvalidFileFormatError(
+                    f"Запись {i} в файле {table_name} должна быть словарём"
+                )
+            for col in data["columns"]:
+                if col not in record:
+                    raise InvalidFileFormatError(
+                        f"В записи {i} отсутствует колонка '{col}' в файле {table_name}"
+                    )
+
         if "columns" not in data:
             raise InvalidFileFormatError(
                 f"В файле {table_name} отсутствует поле 'columns'"
@@ -229,6 +240,52 @@ class FileDatabase(Database):
 
         return deleted
 
+    def update_records_by_indexes(
+        self, table_name: str, indexes: list[int], updates: dict[str, Any]
+    ) -> int:
+        """Обновляет записи по списку индексов"""
+        data = self._load_table(table_name)
+        columns = data["columns"]
+        records = data["records"]
+
+        invalid_keys = [k for k in updates.keys() if k not in columns]
+        if invalid_keys:
+            raise ColumnNotFoundError(
+                f"Неизвестное поле: {', '.join(invalid_keys)}. "
+                f"Доступные поля: {columns}"
+            )
+
+        updated = 0
+        for idx in sorted(indexes, reverse=True):
+            if 0 <= idx < len(records):
+                record = records[idx]
+                for key, value in updates.items():
+                    col_idx = columns.index(key)
+                    record[key] = value
+                records[idx] = record
+                updated += 1
+
+        if updated > 0:
+            self._save_table(table_name, data)
+
+        return updated
+
+    def delete_records_by_indexes(self, table_name: str, indexes: list[int]) -> int:
+        """Удаляет записи по списку индексов"""
+        data = self._load_table(table_name)
+        records = data["records"]
+
+        deleted = 0
+        for idx in sorted(indexes, reverse=True):
+            if 0 <= idx < len(records):
+                del records[idx]
+                deleted += 1
+
+        if deleted > 0:
+            self._save_table(table_name, data)
+
+        return deleted
+
     def table_exists(self, table_name: str) -> bool:
         """Проверяет существование таблицы"""
         return self._get_table_path(table_name).exists()
@@ -249,10 +306,14 @@ class FileDatabase(Database):
         if new_path.exists():
             raise DuplicateTableError(f"Таблица '{new_name}' уже существует")
 
+        data = self._load_table(old_name)
+        data["name"] = new_name
+        self._save_table(new_name, data)
+
         try:
-            old_path.rename(new_path)
+            old_path.unlink()
         except OSError as e:
-            raise FileOperationError(f"Ошибка переименования файла: {e}")
+            raise FileOperationError(f"Ошибка удаления старого файла: {e}")
 
     def rename_column(self, table_name: str, old_column: str, new_column: str) -> None:
         """Переименовывает колонку"""

@@ -1,4 +1,3 @@
-from src.db.backend.memory import Database
 from src.db.backend.errors import (
     TableNotFoundError,
     ColumnNotFoundError,
@@ -310,7 +309,22 @@ class TUI:
                     filters[key] = val
 
         try:
-            found_records = self._db.select_records(self._current_table, **filters)
+            all_records_with_indexes = list(
+                enumerate(self._db.select_records(self._current_table))
+            )
+
+            found_records_with_indexes = [
+                (idx, record)
+                for idx, record in all_records_with_indexes
+                if all(
+                    str(record[self._db.get_columns(self._current_table).index(k)]) == v
+                    for k, v in filters.items()
+                )
+                or not filters
+            ]
+
+            found_records = [record for _, record in found_records_with_indexes]
+
         except Exception as e:
             print(f"❌ Ошибка: {e}")
             return
@@ -330,33 +344,22 @@ class TUI:
             print("❌ Обновление отменено")
             return
 
-        # Получаем все записи таблицы для поиска реальных индексов
-        all_records = self._db.select_records(self._current_table)
-
-        # Находим реальные индексы выбранных записей
         selected_real_indexes = []
         if choice == "all":
-            for record in found_records:
-                for i, r in enumerate(all_records):
-                    if r == record:
-                        selected_real_indexes.append(i)
-                        break
+            selected_real_indexes = [idx for idx, _ in found_records_with_indexes]
         else:
             for num in choice.split():
                 try:
                     idx_in_found = int(num) - 1
-                    if 0 <= idx_in_found < len(found_records):
-                        record = found_records[idx_in_found]
-                        for i, r in enumerate(all_records):
-                            if r == record:
-                                selected_real_indexes.append(i)
-                                break
+                    if 0 <= idx_in_found < len(found_records_with_indexes):
+                        selected_real_indexes.append(
+                            found_records_with_indexes[idx_in_found][0]
+                        )
                     else:
                         print(f"⚠️ Номер {num} вне диапазона")
                 except ValueError:
                     print(f"⚠️ Некорректный номер: {num}")
 
-        # Удаляем дубликаты и сортируем по убыванию
         selected_real_indexes = sorted(set(selected_real_indexes), reverse=True)
 
         if not selected_real_indexes:
@@ -365,9 +368,13 @@ class TUI:
 
         print(f"\nВыбрано {len(selected_real_indexes)} записей для обновления:")
         for real_idx in selected_real_indexes:
-            print(f"  • {all_records[real_idx]}")
+            record = next(
+                (r for i, r in all_records_with_indexes if i == real_idx), None
+            )
+            if record:
+                print(f"  • {record}")
 
-        confirm = input(f"\nВы уверены? (д/н): ").strip().lower()
+        confirm = input("\nВы уверены? (д/н): ").strip().lower()
         if confirm not in ("д", "yes", "y", "да"):
             print("Обновление отменено")
             return
@@ -436,7 +443,21 @@ class TUI:
             return
 
         try:
-            to_delete = self._db.select_records(self._current_table, **filters)
+            all_records_with_indexes = list(
+                enumerate(self._db.select_records(self._current_table))
+            )
+
+            found_records_with_indexes = [
+                (idx, record)
+                for idx, record in all_records_with_indexes
+                if all(
+                    str(record[self._db.get_columns(self._current_table).index(k)]) == v
+                    for k, v in filters.items()
+                )
+            ]
+
+            to_delete = [record for _, record in found_records_with_indexes]
+
         except Exception as e:
             print(f"❌ Ошибка: {e}")
             return
@@ -456,33 +477,22 @@ class TUI:
             print("❌ Удаление отменено")
             return
 
-        # Получаем все записи таблицы для поиска реальных индексов
-        all_records = self._db.select_records(self._current_table)
-
-        # Находим реальные индексы выбранных записей
         selected_real_indexes = []
         if choice == "all":
-            for record in to_delete:
-                for i, r in enumerate(all_records):
-                    if r == record:
-                        selected_real_indexes.append(i)
-                        break
+            selected_real_indexes = [idx for idx, _ in found_records_with_indexes]
         else:
             for num in choice.split():
                 try:
                     idx_in_found = int(num) - 1
-                    if 0 <= idx_in_found < len(to_delete):
-                        record = to_delete[idx_in_found]
-                        for i, r in enumerate(all_records):
-                            if r == record:
-                                selected_real_indexes.append(i)
-                                break
+                    if 0 <= idx_in_found < len(found_records_with_indexes):
+                        selected_real_indexes.append(
+                            found_records_with_indexes[idx_in_found][0]
+                        )
                     else:
                         print(f"⚠️ Номер {num} вне диапазона")
                 except ValueError:
                     print(f"⚠️ Некорректный номер: {num}")
 
-        # Удаляем дубликаты и сортируем по убыванию
         selected_real_indexes = sorted(set(selected_real_indexes), reverse=True)
 
         if not selected_real_indexes:
@@ -491,9 +501,13 @@ class TUI:
 
         print(f"\nВыбрано {len(selected_real_indexes)} записей для удаления:")
         for real_idx in selected_real_indexes:
-            print(f"  • {all_records[real_idx]}")
+            record = next(
+                (r for i, r in all_records_with_indexes if i == real_idx), None
+            )
+            if record:
+                print(f"  • {record}")
 
-        confirm = input(f"\nВы уверены? (д/н): ").strip().lower()
+        confirm = input("\nВы уверены? (д/н): ").strip().lower()
         if confirm not in ("д", "yes", "y", "да"):
             print("Удаление отменено")
             return

@@ -33,7 +33,10 @@ class Table:
         """Проверяет, соответствует ли запись фильтрам"""
         for key, value in filters.items():
             if key not in self.columns:
-                return False
+                raise ColumnNotFoundError(
+                    f"Неизвестная колонка: '{key}'. "
+                    f"Доступные колонки: {self.columns}"
+                )
             idx = self.columns.index(key)
             if record[idx] != value:
                 return False

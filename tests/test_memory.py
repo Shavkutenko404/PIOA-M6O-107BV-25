@@ -1,5 +1,6 @@
 import unittest
-from src.db.backend.memory import Database, Table
+from src.db.backend.memory import MemoryDatabase
+from src.db.backend.table import Table
 from src.db.backend.errors import (
     TableNotFoundError,
     ColumnNotFoundError,
@@ -10,10 +11,6 @@ from src.db.backend.errors import (
     RecordNotFoundError,
     InvalidColumnNameError,
 )
-from src.db.backend.memory import MemoryDatabase
-from src.db.backend.table import Table
-
-# ... остальные импорты
 
 
 class TestDatabase(unittest.TestCase):
@@ -284,10 +281,11 @@ class TestTable(unittest.TestCase):
         self.assertEqual(result, [])
 
     def test_get_records_invalid_column(self):
-        """Фильтр по несуществующей колонке"""
+        """Фильтр по несуществующей колонке вызывает ошибку"""
         self.table.add_record((1, "John", 20))
-        result = self.table.get_records(phone="123")
-        self.assertEqual(result, [])
+        with self.assertRaises(ColumnNotFoundError) as context:
+            self.table.get_records(phone="123")
+        self.assertIn("Неизвестная колонка: 'phone'", str(context.exception))
 
     def test_update_records_no_filters(self):
         """Обновление всех записей (без фильтра)"""

@@ -78,3 +78,15 @@ class Database(ABC):
     ) -> list[tuple[Any, ...]]:
         """Сортирует записи по указанной колонке"""
         pass
+
+    @abstractmethod
+    def update_records_by_indexes(
+        self, table_name: str, indexes: list[int], updates: dict[str, Any]
+    ) -> int:
+        """Обновляет записи по списку индексов"""
+        pass
+
+    @abstractmethod
+    def delete_records_by_indexes(self, table_name: str, indexes: list[int]) -> int:
+        """Удаляет записи по списку индексов"""
+        pass

@@ -78,11 +78,8 @@ class MemoryDatabase(Database):
         table = self._tables.pop(old_name)
         table.name = new_name
         self._tables[new_name] = table
-        # убрал return True
 
-    def rename_column(
-        self, table_name: str, old_column: str, new_column: str
-    ) -> None:  # убрал -> bool
+    def rename_column(self, table_name: str, old_column: str, new_column: str) -> None:
         """Переименовывает колонку"""
         table = self._tables.get(table_name)
         if not table:
@@ -136,9 +133,7 @@ class MemoryDatabase(Database):
             raise TableNotFoundError(f"Таблица '{table_name}' не найдена")
         return table.get_record_by_index(index)
 
-    def delete_record_by_index(
-        self, table_name: str, index: int
-    ) -> None:  # убрал -> bool
+    def delete_record_by_index(self, table_name: str, index: int) -> None:
         table = self._tables.get(table_name)
         if not table:
             raise TableNotFoundError(f"Таблица '{table_name}' не найдена")
@@ -146,11 +141,11 @@ class MemoryDatabase(Database):
 
     def update_record_by_index(
         self, table_name: str, index: int, updates: dict[str, Any]
-    ) -> None:  # убрал -> bool
+    ) -> None:
         table = self._tables.get(table_name)
         if not table:
             raise TableNotFoundError(f"Таблица '{table_name}' не найдена")
-        table.update_record_by_index(index, updates)  # теперь None
+        table.update_record_by_index(index, updates)
 
     def get_table(self, name: str) -> Table | None:
         """Возвращает таблицу по имени"""

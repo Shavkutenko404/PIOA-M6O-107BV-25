@@ -1,6 +1,6 @@
 Шавкутенко Александра Витальевна 
 М6О-107БВ-25
-Pyton
+Python
 task4
 
 https://github.com/Shavkutenko404/PIOA-M6O-107BV-25
@@ -20,7 +20,6 @@ pioa-m60-107bv-25/
 │
 ├── src/ # Исходный код
 │ └── db/
-│ ├── __init__.py
 │ ├── __main__.py # Точка входа
 │ ├── tui.py # Текстовый интерфейс (ООП)
 │ │
@@ -37,16 +36,12 @@ pioa-m60-107bv-25/
 │
 ├── tests/ # Тесты
 │ ├── __init__.py
-│ ├── test_memory.py # Тесты in-memory БД
 │ ├── test_file_database.py # Тесты файловой БД
-│ └── test_tui.py # Тесты интерфейса
 │ ├── test_memory.py # Тесты для БД 
 │ └── test_tui.py # Тесты для интерфейса 
 │
 └── README.md
 ```
-
-## Описание структуры проекта
 
 
 ## Реализованные классы
@@ -175,7 +170,6 @@ In-memory реализация. Данные хранятся в операти�
 
 ### Запуск приложения
 ```bash
-cd C:\Users\A008\pioa-m60-107bv-25
 python -m src.db
 ```
 
